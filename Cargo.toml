@@ -1,0 +1,20 @@
+[package]
+name = "rssreader"
+version = "0.1.0"
+authors = ["Sindre Johansen <sindre@sindrejohansen.no>"]
+
+[dependencies]
+hyper = "*"
+xml-rs = "*"
+itertools = "*"
+postgres_macros = "*"
+iron = "*"
+router = "*"
+serde = "*"
+serde_macros = "*"
+mount = "*"
+staticfile = "*"
+
+[dependencies.postgres]
+version = "*"
+features = ["unix_socket"]
