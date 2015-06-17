@@ -1,33 +1,10 @@
 use hyper::Client;
 use hyper::header::Connection;
-use hyper::client::response::Response;
 
 use xml::reader::EventReader;
 use xml::reader::events::*;
 
-use std::io::Read;
-
-use itertools::Itertools;
-
 use models::Post;
-
-#[derive(Debug)]
-enum TagOrPost {
-    Tag{
-        name: String,
-        characters: String,
-    },
-    Post(Post),
-}
-
-#[derive(Debug)]
-enum TagOrEvent {
-    Tag{
-        name: String,
-        characters: String,
-    },
-    Event(XmlEvent),
-}
 
 // fn indent(size: usize) -> String {
 //     const INDENT: &'static str = "    ";
@@ -35,92 +12,46 @@ enum TagOrEvent {
 //         .fold(String::with_capacity(size*INDENT.len()), |r, s| r + s)
 // }
 
-pub fn download_rss(url: &str) -> Response {
+pub fn download_and_parse_rss(url: &str) -> Vec<Post> {
     let mut client = Client::new();
 
     let res = client.get(url)
         .header(Connection::close())
         .send().unwrap();
-    res
-}
 
-pub fn parse_rss<R: Read>(reader: R) -> Vec<Post> {
-    let mut parser = EventReader::new(reader);
+    let mut parser = EventReader::new(res);
 
-    //let mut items = Vec::new();
+    let mut next_post:Option<Post> = None;
+    let mut current_tag:Option<String> = None;
 
-    let result = parser.events().filter(|e| {
-            match e {
-                &XmlEvent::StartElement { .. } => {
-                    true
-                    // name == "item"
-                    // || name == "author"
-                    // || name == "title"
-                    // || name == "link"
-                    // || name == "description"
+    let mut posts:Vec<Post> = vec![];
+
+    for e in parser.events() {
+        match e {
+            XmlEvent::StartElement { name, .. } => {
+                if name.local_name == "item" {
+                    next_post = Some(Post{
+                        author: None,
+                        title: None,
+                        link: None,
+                        description: None,
+                        guid: None
+                    });
+                } else {
+                    current_tag = Some(name.local_name);
                 }
-                &XmlEvent::Characters(..) => {
-                    true
+            },
+            XmlEvent::EndElement { name } => {
+                if name.local_name == "item" {
+                    posts.push(next_post.take().unwrap());
+                } else {
+                    current_tag = None;
                 }
-                &XmlEvent::Error(..) => {
-                    panic!("Lol, error in the document!");
-                }
-                _ => { false }
-            }
-        })
-        .map(|x| TagOrEvent::Event(x))
-        .coalesce(|x, y| {
-            match (x, y) {
-                (
-                    TagOrEvent::Event(XmlEvent::StartElement{ name, .. }),
-                    TagOrEvent::Event(XmlEvent::Characters(characters))
-                ) => {
-                    Ok(TagOrEvent::Tag{
-                        name: name.local_name,
-                        characters: characters
-                    })
-                },
-                (
-                    TagOrEvent::Tag{name, characters:current_chars},
-                    TagOrEvent::Event(XmlEvent::Characters(characters))
-                ) => {
-                    Ok(TagOrEvent::Tag {
-                        name: name,
-                        characters: current_chars + &characters,
-                    })
-                },
-                (a, b) => {
-                    Err((a, b))
-                }
-            }
-        }).filter_map(|x| {
-            match x {
-                TagOrEvent::Event(XmlEvent::StartElement{ name, ..}) => {
-                    if name.local_name == "item" {
-                        Some(TagOrPost::Post(Post{
-                            author: None,
-                            title: None,
-                            link: None,
-                            description: None,
-                            guid: None,
-                        }))
-                    } else {
-                        None
-                    }
-                },
-                TagOrEvent::Tag{name, characters} => {
-                    Some(TagOrPost::Tag{
-                        name: name,
-                        characters: characters
-                    })
-                }
-                _ => None,
-            }
-        }).coalesce(|x, y| {
-            match (x, y) {
-                (TagOrPost::Post(post), TagOrPost::Tag{name, characters}) => {
-                    let mut post = post;
-                    match name.as_ref() {
+            },
+            XmlEvent::Characters(characters) => {
+                if let (Some(tag), Some(post)) =
+                        (current_tag.as_ref(), next_post.as_mut()) {
+                    match tag.as_ref() {
                         "author" => {
                             post.author = Some(characters);
                         },
@@ -138,20 +69,11 @@ pub fn parse_rss<R: Read>(reader: R) -> Vec<Post> {
                         }
                         _ => {}
                     }
-                    Ok(TagOrPost::Post(post))
                 }
-                (a, b) => {
-                    Err((a, b))
-                }
-            }
-        }).filter_map(|x| {
-            match x {
-                TagOrPost::Post(post) => Some(post),
-                TagOrPost::Tag{..} => None
-            }
-        }).collect_vec();
+            },
+            _ => {},
+        }
+    }
 
-    result
-
-
+    posts
 }

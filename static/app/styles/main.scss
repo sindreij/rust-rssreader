@@ -1,0 +1,55 @@
+$icon-font-path: "../fonts/";
+
+@import url(http://fonts.googleapis.com/css?family=Open+Sans:400,700);
+@import url(http://fonts.googleapis.com/css?family=Inconsolata:400,700);
+
+@import "settings";
+@import "foundation";
+
+.browsehappy {
+    margin: 0.2em 0;
+    background: #ccc;
+    color: #000;
+    padding: 0.2em 0;
+}
+
+body {
+    width: 100%;
+    overflow: hidden;
+}
+
+div#wrapper {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0px;
+    padding: 0;
+}
+
+div.app {
+    position: relative;
+    height: 100%;
+}
+
+div.feeds {
+    width: 300px;
+    position: absolute;
+    bottom: 0;
+    top: 0;
+    left: 0;
+    padding: 15px 0 15px 15px;
+    border-right: 2px #edece4 solid;
+    background-color: #eee;
+    overflow: auto;
+}
+
+div.posts {
+    padding: 15px;
+    position: absolute;
+    bottom: 0;
+    top: 0;
+    right: 0;
+    left: 300px;
+    overflow: auto;
+}
